@@ -67,7 +67,7 @@ export default async function ActivityDetailPage({
           <div className="lg:col-span-2 space-y-6">
             <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-stone-200">
               <Image
-                src="https://images.unsplash.com/photo-1593181824360-f5ecb39823ce?auto=format&fit=crop&w=1200&q=80"
+                src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80"
                 alt={activityTitle}
                 fill
                 sizes="(max-width: 1024px) 100vw, 66vw"

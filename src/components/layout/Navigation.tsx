@@ -8,17 +8,19 @@ import { navLinks, siteConfig } from "@/config/site";
 import { SearchInput } from "@/components/ui/SearchInput";
 
 /**
- * Navigation — primary site header.
+ * Navigation — primary editorial site header.
  *
- * Client Component because it requires:
- * - Scroll detection (transparent → solid background on scroll)
- * - Mobile menu toggle
- * - Active link state via usePathname
+ * Desktop:
+ *   Logo | Destinations | Places | Travel Guides | Itineraries | Search
  *
- * Performance notes:
- * - Uses CSS transitions (not JS animations) for header background
- * - Mobile menu is display toggled, not mounted/unmounted
- * - prefers-reduced-motion respected via Tailwind motion-reduce: variants
+ * Mobile:
+ *   Logo | Search Icon Link | Menu Button
+ *
+ * Features:
+ * - Transparent overlay on top of dark hero
+ * - Smooth transition to solid frosted surface on scroll (scrollY > 20)
+ * - Mobile responsive drawer with accessible focus and controls
+ * - Zero heavy dependencies; hardware-accelerated CSS transitions
  */
 export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -34,6 +36,7 @@ export function Navigation() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Reset mobile menu on route changes during render
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (prevPathname !== pathname) {
     setPrevPathname(pathname);
@@ -43,11 +46,10 @@ export function Navigation() {
   return (
     <header
       className={cn(
-        "fixed top-0 left-0 right-0 z-50",
-        "transition-all duration-300 motion-reduce:transition-none",
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 motion-reduce:transition-none",
         isScrolled || isMobileMenuOpen
-          ? "bg-white/95 backdrop-blur-md shadow-sm"
-          : "bg-transparent"
+          ? "bg-white/95 backdrop-blur-md shadow-xs border-b border-stone-200/60"
+          : "bg-transparent border-b border-white/10"
       )}
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -55,44 +57,29 @@ export function Navigation() {
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2 flex-shrink-0"
+            className="flex items-center gap-2.5 flex-shrink-0 group"
             aria-label={`${siteConfig.name} — Go to homepage`}
           >
             <div
               className={cn(
-                "flex items-center gap-2 transition-colors duration-300",
-                isScrolled ? "text-stone-900" : "text-white"
+                "flex items-center gap-2.5 transition-colors duration-200",
+                isScrolled || isMobileMenuOpen ? "text-stone-900" : "text-white"
               )}
             >
-              {/* Logo mark */}
-              <svg
-                aria-hidden="true"
-                className="h-8 w-8 text-amber-500"
-                viewBox="0 0 32 32"
-                fill="none"
-              >
-                <circle cx="16" cy="16" r="14" fill="currentColor" opacity="0.15" />
-                <path
-                  d="M16 4C9.373 4 4 9.373 4 16s5.373 12 12 12 12-5.373 12-12S22.627 4 16 4zm0 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S6 21.523 6 16 10.477 6 16 6z"
-                  fill="currentColor"
-                  className="text-amber-500"
-                />
-                <path
-                  d="M16 8l2 5h5l-4 3 1.5 5L16 18l-4.5 3L13 16l-4-3h5z"
-                  fill="currentColor"
-                  className="text-amber-500"
-                />
-              </svg>
-              <span className="text-xl font-bold tracking-tight">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-stone-950 font-serif font-black text-lg shadow-xs group-hover:bg-amber-400 transition-colors">
+                W
+              </span>
+              <span className="text-xl font-bold tracking-tight font-serif">
                 {siteConfig.name}
               </span>
             </div>
           </Link>
 
-          {/* Desktop nav */}
+          {/* Desktop Navigation Links */}
           <nav aria-label="Main navigation" className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => {
-              const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+              const isActive =
+                pathname === link.href || pathname.startsWith(link.href + "/");
               return (
                 <Link
                   key={link.href}
@@ -101,11 +88,11 @@ export function Navigation() {
                     "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
                     isScrolled
                       ? isActive
-                        ? "text-amber-700 bg-amber-50"
+                        ? "text-amber-800 bg-amber-50"
                         : "text-stone-600 hover:text-stone-900 hover:bg-stone-100"
                       : isActive
-                        ? "text-white bg-white/20"
-                        : "text-white/80 hover:text-white hover:bg-white/10"
+                        ? "text-white bg-white/20 backdrop-blur-xs"
+                        : "text-white/85 hover:text-white hover:bg-white/10"
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
@@ -115,61 +102,102 @@ export function Navigation() {
             })}
           </nav>
 
-          {/* Desktop right actions */}
+          {/* Desktop Search Interaction */}
           <div className="hidden lg:flex items-center gap-3">
-            <div className="w-56">
-              <SearchInput compact />
+            <div className="w-60">
+              <SearchInput compact placeholder="Search places, guides..." />
             </div>
           </div>
 
-          {/* Mobile menu button */}
-          <button
-            type="button"
-            aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-            aria-expanded={isMobileMenuOpen}
-            aria-controls="mobile-menu"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={cn(
-              "lg:hidden p-2 rounded-lg transition-colors duration-200",
-              isScrolled
-                ? "text-stone-700 hover:bg-stone-100"
-                : "text-white hover:bg-white/10"
-            )}
-          >
-            <svg
-              aria-hidden="true"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              {isMobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          {/* Mobile Right Controls: Search + Menu */}
+          <div className="flex items-center gap-1.5 lg:hidden">
+            {/* Mobile Search Button */}
+            <Link
+              href="/search"
+              aria-label="Search destinations, places and guides"
+              className={cn(
+                "p-2 rounded-lg transition-colors duration-200",
+                isScrolled || isMobileMenuOpen
+                  ? "text-stone-700 hover:bg-stone-100"
+                  : "text-white hover:bg-white/10"
               )}
-            </svg>
-          </button>
+            >
+              <svg
+                aria-hidden="true"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
+              </svg>
+            </Link>
+
+            {/* Mobile Hamburger Menu Toggle */}
+            <button
+              type="button"
+              aria-label={
+                isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"
+              }
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-menu"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className={cn(
+                "p-2 rounded-lg transition-colors duration-200",
+                isScrolled || isMobileMenuOpen
+                  ? "text-stone-700 hover:bg-stone-100"
+                  : "text-white hover:bg-white/10"
+              )}
+            >
+              <svg
+                aria-hidden="true"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                {isMobileMenuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile Drawer Menu */}
       <div
         id="mobile-menu"
         className={cn(
           "lg:hidden bg-white border-t border-stone-100 overflow-hidden",
           "transition-all duration-300 motion-reduce:transition-none",
-          isMobileMenuOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
+          isMobileMenuOpen ? "max-h-screen opacity-100 shadow-xl" : "max-h-0 opacity-0"
         )}
         aria-hidden={!isMobileMenuOpen}
       >
-        <div className="px-4 py-4 space-y-1">
-          <div className="pb-3">
-            <SearchInput placeholder="Search destinations..." />
+        <div className="px-4 py-4 space-y-2">
+          <div className="pb-3 border-b border-stone-100">
+            <SearchInput placeholder="Search destinations, places, guides..." />
           </div>
           {navLinks.map((link) => {
-            const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+            const isActive =
+              pathname === link.href || pathname.startsWith(link.href + "/");
             return (
               <Link
                 key={link.href}
@@ -177,7 +205,7 @@ export function Navigation() {
                 className={cn(
                   "block px-4 py-3 rounded-xl text-base font-medium transition-colors duration-150",
                   isActive
-                    ? "text-amber-700 bg-amber-50"
+                    ? "text-amber-800 bg-amber-50"
                     : "text-stone-700 hover:text-stone-900 hover:bg-stone-50"
                 )}
                 aria-current={isActive ? "page" : undefined}

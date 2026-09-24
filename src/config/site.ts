@@ -22,9 +22,9 @@ export const siteConfig = {
 
 export const navLinks = [
   { label: "Destinations", href: "/destinations" },
+  { label: "Places", href: "/places" },
   { label: "Travel Guides", href: "/travel-guides" },
   { label: "Itineraries", href: "/itineraries" },
-  { label: "Things To Do", href: "/things-to-do" },
 ] as const;
 
 export const footerLinks = {

@@ -39,7 +39,7 @@ export default function DestinationsIndexPage() {
       badge: "Featured Region",
       image: {
         id: "img-hp",
-        url: "https://images.unsplash.com/photo-1593181824360-f5ecb39823ce?auto=format&fit=crop&w=800&q=80",
+        url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
         altText: "Pine-covered mountain valley in Himachal Pradesh",
       },
     },

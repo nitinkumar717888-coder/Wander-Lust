@@ -44,7 +44,7 @@ async function main() {
 
   const solangImg = await prisma.image.create({
     data: {
-      url: "https://images.unsplash.com/photo-1593181824360-f5ecb39823ce?auto=format&fit=crop&w=1200&q=80",
+      url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
       altText: "Adventure sports and snowfields in Solang Valley",
       caption: "Solang Valley alpine meadow in winter",
       credit: "Unsplash",

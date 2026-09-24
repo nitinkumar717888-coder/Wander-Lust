@@ -27,7 +27,7 @@ export default function PlacesIndexPage() {
       badge: "Adventure",
       image: {
         id: "img-solang",
-        url: "https://images.unsplash.com/photo-1593181824360-f5ecb39823ce?auto=format&fit=crop&w=800&q=80",
+        url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
         altText: "Snow-covered peaks in Solang Valley",
       },
     },
@@ -51,7 +51,7 @@ export default function PlacesIndexPage() {
       badge: "Culture",
       image: {
         id: "img-old-manali",
-        url: "https://images.unsplash.com/photo-1593181824360-f5ecb39823ce?auto=format&fit=crop&w=800&q=80",
+        url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
         altText: "Stone and cedar dwellings in Old Manali",
       },
     },
