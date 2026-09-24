@@ -1,0 +1,379 @@
+// Travel Discovery Platform — Prisma Schema
+// Foundation phase: geographic hierarchy + content models
+// Designed for SEO-first, editorial travel content
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// AUTH & USERS
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  role      UserRole @default(READER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  author    Author?
+
+  @@map("users")
+}
+
+enum UserRole {
+  READER
+  AUTHOR
+  EDITOR
+  ADMIN
+}
+
+model Author {
+  id          String   @id @default(cuid())
+  userId      String   @unique @map("user_id")
+  displayName String   @map("display_name")
+  bio         String?
+  slug        String   @unique
+  website     String?
+  twitter     String?
+  instagram   String?
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articles    Article[]
+
+  @@index([slug])
+  @@map("authors")
+}
+
+// ---------------------------------------------------------------------------
+// GEOGRAPHIC HIERARCHY: Country → Region → Destination → Place
+// ---------------------------------------------------------------------------
+
+model Country {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  code        String   @unique  // ISO 3166-1 alpha-2 (e.g. "IN")
+  continent   String?
+  description String?
+  metaTitle       String?  @map("meta_title")
+  metaDescription String?  @map("meta_description")
+  featuredImageId String?  @map("featured_image_id")
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  regions       Region[]
+  featuredImage Image?   @relation("CountryFeaturedImage", fields: [featuredImageId], references: [id])
+
+  @@index([slug])
+  @@index([code])
+  @@map("countries")
+}
+
+model Region {
+  id          String   @id @default(cuid())
+  countryId   String   @map("country_id")
+  name        String
+  slug        String   @unique
+  description String?
+  metaTitle       String?  @map("meta_title")
+  metaDescription String?  @map("meta_description")
+  featuredImageId String?  @map("featured_image_id")
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  country       Country      @relation(fields: [countryId], references: [id])
+  destinations  Destination[]
+  featuredImage Image?       @relation("RegionFeaturedImage", fields: [featuredImageId], references: [id])
+
+  @@unique([countryId, slug])
+  @@index([slug])
+  @@index([countryId])
+  @@map("regions")
+}
+
+model Destination {
+  id          String   @id @default(cuid())
+  regionId    String   @map("region_id")
+  name        String
+  slug        String   @unique
+  tagline     String?
+  description String?
+  bestTimeToVisit String?  @map("best_time_to_visit")
+  climate     String?
+  metaTitle       String?  @map("meta_title")
+  metaDescription String?  @map("meta_description")
+  featuredImageId String?  @map("featured_image_id")
+  latitude    Float?
+  longitude   Float?
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  region        Region       @relation(fields: [regionId], references: [id])
+  places        Place[]
+  articles      Article[]
+  itineraries   Itinerary[]
+  faqs          FAQ[]
+  featuredImage Image?       @relation("DestinationFeaturedImage", fields: [featuredImageId], references: [id])
+
+  @@index([slug])
+  @@index([regionId])
+  @@map("destinations")
+}
+
+model Place {
+  id              String        @id @default(cuid())
+  destinationId   String        @map("destination_id")
+  categoryId      String?       @map("category_id")
+  name            String
+  slug            String        @unique
+  description     String?
+  shortDescription String?      @map("short_description")
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  openingHours    String?       @map("opening_hours")
+  entryFee        String?       @map("entry_fee")
+  visitDuration   String?       @map("visit_duration")  // e.g. "2-3 hours"
+  tips            String?
+  metaTitle       String?       @map("meta_title")
+  metaDescription String?       @map("meta_description")
+  featuredImageId String?       @map("featured_image_id")
+  isPublished     Boolean       @default(false) @map("is_published")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  destination     Destination   @relation(fields: [destinationId], references: [id])
+  category        Category?     @relation(fields: [categoryId], references: [id])
+  images          Image[]       @relation("PlaceImages")
+  featuredImage   Image?        @relation("PlaceFeaturedImage", fields: [featuredImageId], references: [id])
+  faqs            FAQ[]
+
+  @@index([slug])
+  @@index([destinationId])
+  @@index([categoryId])
+  @@map("places")
+}
+
+// ---------------------------------------------------------------------------
+// CONTENT: Categories, Tags
+// ---------------------------------------------------------------------------
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?  // Icon name or emoji
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  places    Place[]
+  articles  Article[]
+
+  @@index([slug])
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  articleTags ArticleTag[]
+
+  @@index([slug])
+  @@map("tags")
+}
+
+// ---------------------------------------------------------------------------
+// ARTICLES (Travel Guides, Blog Posts, Things To Do)
+// ---------------------------------------------------------------------------
+
+model Article {
+  id              String      @id @default(cuid())
+  authorId        String      @map("author_id")
+  destinationId   String?     @map("destination_id")
+  categoryId      String?     @map("category_id")
+  title           String
+  slug            String      @unique
+  excerpt         String?
+  content         String      // Markdown or HTML
+  type            ArticleType @default(GUIDE)
+  readingTimeMin  Int?        @map("reading_time_min")
+  metaTitle       String?     @map("meta_title")
+  metaDescription String?     @map("meta_description")
+  canonicalUrl    String?     @map("canonical_url")
+  ogImageId       String?     @map("og_image_id")
+  featuredImageId String?     @map("featured_image_id")
+  isPublished     Boolean     @default(false) @map("is_published")
+  publishedAt     DateTime?   @map("published_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  author          Author        @relation(fields: [authorId], references: [id])
+  destination     Destination?  @relation(fields: [destinationId], references: [id])
+  category        Category?     @relation(fields: [categoryId], references: [id])
+  tags            ArticleTag[]
+  images          Image[]       @relation("ArticleImages")
+  featuredImage   Image?        @relation("ArticleFeaturedImage", fields: [featuredImageId], references: [id])
+  ogImage         Image?        @relation("ArticleOgImage", fields: [ogImageId], references: [id])
+  faqs            FAQ[]
+
+  @@index([slug])
+  @@index([authorId])
+  @@index([destinationId])
+  @@index([type])
+  @@index([isPublished, publishedAt])
+  @@map("articles")
+}
+
+enum ArticleType {
+  GUIDE           // Full travel guide
+  BLOG_POST       // Editorial blog post
+  THINGS_TO_DO    // Things to do roundup
+  ITINERARY_POST  // Editorial itinerary post
+  NEWS            // Travel news/updates
+}
+
+model ArticleTag {
+  articleId String @map("article_id")
+  tagId     String @map("tag_id")
+
+  // Relations
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+  @@map("article_tags")
+}
+
+// ---------------------------------------------------------------------------
+// ITINERARIES
+// ---------------------------------------------------------------------------
+
+model Itinerary {
+  id              String    @id @default(cuid())
+  destinationId   String?   @map("destination_id")
+  title           String
+  slug            String    @unique
+  summary         String?
+  durationDays    Int       @map("duration_days")
+  difficulty      String?   // e.g. "Easy", "Moderate", "Challenging"
+  budgetRange     String?   @map("budget_range")  // e.g. "Budget", "Mid-range", "Luxury"
+  metaTitle       String?   @map("meta_title")
+  metaDescription String?   @map("meta_description")
+  featuredImageId String?   @map("featured_image_id")
+  isPublished     Boolean   @default(false) @map("is_published")
+  publishedAt     DateTime? @map("published_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  destination     Destination?    @relation(fields: [destinationId], references: [id])
+  days            ItineraryDay[]
+  featuredImage   Image?          @relation("ItineraryFeaturedImage", fields: [featuredImageId], references: [id])
+
+  @@index([slug])
+  @@index([destinationId])
+  @@map("itineraries")
+}
+
+model ItineraryDay {
+  id           String    @id @default(cuid())
+  itineraryId  String    @map("itinerary_id")
+  dayNumber    Int       @map("day_number")
+  title        String?
+  description  String?
+  highlights   String[]  // Array of highlight strings
+  accommodation String?
+  meals        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  itinerary    Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+
+  @@unique([itineraryId, dayNumber])
+  @@index([itineraryId])
+  @@map("itinerary_days")
+}
+
+// ---------------------------------------------------------------------------
+// IMAGES
+// ---------------------------------------------------------------------------
+
+model Image {
+  id          String   @id @default(cuid())
+  url         String   // CDN or storage URL
+  altText     String   @map("alt_text")
+  caption     String?
+  credit      String?  // Photographer/source attribution
+  width       Int?
+  height      Int?
+  mimeType    String?  @map("mime_type")
+  sizeBytes   Int?     @map("size_bytes")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations — a single image can be referenced by many entities
+  countriesFeatured    Country[]     @relation("CountryFeaturedImage")
+  regionsFeatured      Region[]      @relation("RegionFeaturedImage")
+  destinationsFeatured Destination[] @relation("DestinationFeaturedImage")
+  placesFeatured       Place[]       @relation("PlaceFeaturedImage")
+  placeImages          Place[]       @relation("PlaceImages")
+  articlesFeatured     Article[]     @relation("ArticleFeaturedImage")
+  articlesOg           Article[]     @relation("ArticleOgImage")
+  articlesImages       Article[]     @relation("ArticleImages")
+  itinerariesFeatured  Itinerary[]   @relation("ItineraryFeaturedImage")
+
+  @@map("images")
+}
+
+// ---------------------------------------------------------------------------
+// FAQs (can belong to a destination, place, or article)
+// ---------------------------------------------------------------------------
+
+model FAQ {
+  id            String   @id @default(cuid())
+  question      String
+  answer        String
+  sortOrder     Int      @default(0) @map("sort_order")
+  destinationId String?  @map("destination_id")
+  placeId       String?  @map("place_id")
+  articleId     String?  @map("article_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  destination   Destination? @relation(fields: [destinationId], references: [id])
+  place         Place?       @relation(fields: [placeId], references: [id])
+  article       Article?     @relation(fields: [articleId], references: [id])
+
+  @@index([destinationId])
+  @@index([placeId])
+  @@index([articleId])
+  @@map("faqs")
+}
