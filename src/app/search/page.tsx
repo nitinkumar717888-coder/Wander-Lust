@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { db } from "@/lib/db";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Heading } from "@/components/ui/Heading";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { generatePageMetadata } from "@/lib/seo";
 
 interface SearchPageProps {
@@ -22,7 +24,7 @@ export async function generateMetadata({
     title,
     description: "Search across our curated database of countries, regions, destinations, and editorial guides.",
     path: "/search",
-    noIndex: true, // Internal search pages should typically not be indexed
+    noIndex: true,
   });
 }
 
@@ -35,46 +37,144 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     { label: "Search" },
   ];
 
-  // Foundation search results matching against sample foundation dataset
-  const foundationCatalog = [
-    {
-      type: "Destination",
-      title: "Manali",
-      location: "Himachal Pradesh, India",
-      href: "/places",
-      description: "Gateway to high-altitude Himalayan adventures, pine sanctuaries, and alpine trails.",
-    },
-    {
-      type: "Place",
-      title: "Solang Valley",
-      location: "Manali, Himachal Pradesh",
-      href: "/places/solang-valley",
-      description: "High-altitude adventure meadow renowned for paragliding and winter skiing.",
-    },
-    {
-      type: "Place",
-      title: "Hidimba Devi Temple",
-      location: "Manali, Himachal Pradesh",
-      href: "/places/hidimba-temple",
-      description: "Historic 16th-century wooden pagoda temple built inside Dhungiri cedar forest.",
-    },
-    {
-      type: "Guide",
-      title: "The Definitive First-Timer's Guide to Manali & Kullu Valley",
-      location: "Himachal Pradesh",
-      href: "/travel-guides/manali-first-timers-guide",
-      description: "Logistics, acclimatization tips, seasonal snowfall advice, and culinary guide.",
-    },
-  ];
+  type SearchResultItem = {
+    id: string;
+    type: "Destination" | "Place" | "Guide" | "Itinerary";
+    title: string;
+    location: string;
+    href: string;
+    description: string;
+    badge?: string;
+  };
 
-  const results = query
-    ? foundationCatalog.filter(
-        (item) =>
-          item.title.toLowerCase().includes(query.toLowerCase()) ||
-          item.location.toLowerCase().includes(query.toLowerCase()) ||
-          item.description.toLowerCase().includes(query.toLowerCase())
-      )
-    : [];
+  const results: SearchResultItem[] = [];
+
+  if (query.length > 0) {
+    try {
+      const [destinations, places, articles, itineraries] = await Promise.all([
+        db.destination.findMany({
+          where: {
+            OR: [
+              { name: { contains: query, mode: "insensitive" } },
+              { description: { contains: query, mode: "insensitive" } },
+              { tagline: { contains: query, mode: "insensitive" } },
+            ],
+          },
+          include: {
+            region: { include: { country: true } },
+          },
+          take: 5,
+        }),
+        db.place.findMany({
+          where: {
+            OR: [
+              { name: { contains: query, mode: "insensitive" } },
+              { shortDescription: { contains: query, mode: "insensitive" } },
+              { description: { contains: query, mode: "insensitive" } },
+            ],
+          },
+          include: {
+            destination: {
+              include: {
+                region: { include: { country: true } },
+              },
+            },
+            category: true,
+          },
+          take: 5,
+        }),
+        db.article.findMany({
+          where: {
+            isPublished: true,
+            OR: [
+              { title: { contains: query, mode: "insensitive" } },
+              { excerpt: { contains: query, mode: "insensitive" } },
+              { content: { contains: query, mode: "insensitive" } },
+            ],
+          },
+          include: {
+            destination: {
+              include: {
+                region: { include: { country: true } },
+              },
+            },
+          },
+          take: 5,
+        }),
+        db.itinerary.findMany({
+          where: {
+            isPublished: true,
+            OR: [
+              { title: { contains: query, mode: "insensitive" } },
+              { summary: { contains: query, mode: "insensitive" } },
+            ],
+          },
+          include: {
+            destination: {
+              include: {
+                region: { include: { country: true } },
+              },
+            },
+          },
+          take: 5,
+        }),
+      ]);
+
+      destinations.forEach((d) => {
+        results.push({
+          id: d.id,
+          type: "Destination",
+          title: d.name,
+          location: `${d.region.name}, ${d.region.country.name}`,
+          href: `/destinations/${d.region.country.slug}/${d.region.slug}/${d.slug}`,
+          description: d.description ?? d.tagline ?? "Himalayan destination in northern India.",
+          badge: "Destination",
+        });
+      });
+
+      places.forEach((p) => {
+        results.push({
+          id: p.id,
+          type: "Place",
+          title: p.name,
+          location: `${p.destination.name}, ${p.destination.region.name}`,
+          href: `/places/${p.slug}`,
+          description: p.shortDescription ?? "Point of interest and scenic travel attraction.",
+          badge: p.category?.name ?? "Attraction",
+        });
+      });
+
+      articles.forEach((a) => {
+        results.push({
+          id: a.id,
+          type: "Guide",
+          title: a.title,
+          location: a.destination
+            ? `${a.destination.name}, ${a.destination.region.name}`
+            : "Editorial Publication",
+          href: `/travel-guides/${a.slug}`,
+          description: a.excerpt ?? "Comprehensive editorial travel guide and advice.",
+          badge: "Travel Guide",
+        });
+      });
+
+      itineraries.forEach((itin) => {
+        results.push({
+          id: itin.id,
+          type: "Itinerary",
+          title: itin.title,
+          location: itin.destination
+            ? `${itin.destination.name}, ${itin.destination.region.name}`
+            : "Multi-stop Journey",
+          href: `/itineraries/${itin.slug}`,
+          description: itin.summary ?? `${itin.durationDays}-day curated travel route.`,
+          badge: `${itin.durationDays} Days`,
+        });
+      });
+    } catch (err) {
+      console.error("Search query error:", err);
+    }
+  }
 
   return (
     <Section padding="lg">
@@ -86,7 +186,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             Search Discovery
           </Heading>
           <p className="mt-2 text-stone-600 text-sm">
-            Find destinations, regional guides, points of interest, and itineraries.
+            Search across our database of destinations, landmarks, travel guides, and itineraries.
           </p>
           <div className="mt-6">
             <SearchInput defaultValue={query} placeholder="Try searching 'Manali', 'Solang', 'India'..." />
@@ -101,49 +201,66 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
             {results.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {results.map((res) => (
-                  <Link key={res.title} href={res.href} className="group">
-                    <Card variant="default" className="h-full group-hover:border-amber-500 transition-colors">
-                      <CardHeader>
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="font-semibold uppercase tracking-wider text-amber-600">
-                            {res.type}
-                          </span>
-                          <span className="text-stone-400">{res.location}</span>
-                        </div>
-                        <CardTitle className="group-hover:text-amber-700 transition-colors">
-                          {res.title}
-                        </CardTitle>
-                        <CardDescription>{res.description}</CardDescription>
-                      </CardHeader>
-                    </Card>
-                  </Link>
+                {results.map((result) => (
+                  <Card key={`${result.type}-${result.id}`}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                          {result.type}
+                        </span>
+                        {result.badge && (
+                          <Badge variant="category">{result.badge}</Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-lg">
+                        <Link
+                          href={result.href}
+                          className="hover:text-amber-700 transition-colors"
+                        >
+                          {result.title}
+                        </Link>
+                      </CardTitle>
+                      <p className="text-xs text-stone-500 font-medium">{result.location}</p>
+                      <CardDescription className="line-clamp-2 mt-2">
+                        {result.description}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-stone-300 p-12 text-center">
-                <p className="text-stone-600 font-medium">No results found for &ldquo;{query}&rdquo;</p>
-                <p className="text-stone-400 text-sm mt-1">Try searching for &ldquo;Manali&rdquo; or &ldquo;Solang&rdquo; to test foundation data.</p>
+              <div className="text-center py-16 border border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
+                <p className="font-serif text-lg font-bold text-stone-900">
+                  No matches found for &ldquo;{query}&rdquo;
+                </p>
+                <p className="text-sm text-stone-500 mt-1 max-w-sm mx-auto">
+                  Try checking for typos or searching for a broader term like &ldquo;Manali&rdquo;, &ldquo;Temple&rdquo;, or &ldquo;Himalayas&rdquo;.
+                </p>
+                <div className="mt-6">
+                  <Link href="/destinations">
+                    <button className="px-4 py-2 text-sm font-medium text-amber-800 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors">
+                      Browse all destinations
+                    </button>
+                  </Link>
+                </div>
               </div>
             )}
           </div>
         ) : (
-          <div className="rounded-2xl bg-stone-50 border border-stone-200/80 p-8">
-            <h3 className="font-serif text-lg font-bold text-stone-900 mb-2">
-              Popular Searches
-            </h3>
-            <div className="flex flex-wrap gap-2 text-sm">
-              {["Manali", "Solang Valley", "Hidimba Temple", "India", "Himachal Pradesh"].map(
-                (term) => (
-                  <Link
-                    key={term}
-                    href={`/search?q=${encodeURIComponent(term)}`}
-                    className="rounded-full bg-white border border-stone-200 px-4 py-1.5 text-stone-700 hover:border-amber-500 hover:text-amber-700 transition-colors shadow-2xs"
-                  >
-                    {term}
-                  </Link>
-                )
-              )}
+          <div className="py-8 border-t border-stone-200">
+            <h2 className="text-sm font-semibold text-stone-900 uppercase tracking-wider mb-4">
+              Suggested Searches
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {["Manali", "Solang Valley", "Hidimba", "Himalayas", "Itinerary", "Adventure"].map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/search?q=${encodeURIComponent(tag)}`}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-stone-100 text-stone-700 hover:bg-amber-100 hover:text-amber-800 transition-colors"
+                >
+                  {tag}
+                </Link>
+              ))}
             </div>
           </div>
         )}

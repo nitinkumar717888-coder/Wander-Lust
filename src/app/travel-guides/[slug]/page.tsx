@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Heading } from "@/components/ui/Heading";
@@ -17,37 +19,80 @@ export async function generateMetadata({
   params,
 }: GuidePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const title = slug
-    .split("-")
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(" ");
+
+  const article = await db.article.findUnique({
+    where: { slug },
+    include: {
+      author: true,
+      featuredImage: true,
+    },
+  });
+
+  if (!article) {
+    return generatePageMetadata({
+      title: "Travel Guide Not Found",
+      description: "The requested travel guide could not be located in our publication archives.",
+      path: `/travel-guides/${slug}`,
+      noIndex: true,
+    });
+  }
 
   return generatePageMetadata({
-    title: `${title} | Wanderlust Editorial`,
-    description: `Complete travel guide to ${title}. Logistics, top destinations, local culinary highlights, and practical advice.`,
+    title: `${article.title} | Wanderlust Editorial`,
+    description: article.excerpt || `Read our comprehensive travel guide: ${article.title}.`,
     path: `/travel-guides/${slug}`,
+    ogImageUrl: article.featuredImage?.url,
   });
 }
 
 export default async function GuideDetailPage({ params }: GuidePageProps) {
   const { slug } = await params;
-  const guideTitle = "The Definitive First-Timer's Guide to Manali & Kullu Valley";
+
+  const article = await db.article.findUnique({
+    where: { slug },
+    include: {
+      author: true,
+      featuredImage: true,
+      destination: {
+        include: {
+          region: { include: { country: true } },
+        },
+      },
+      tags: {
+        include: { tag: true },
+      },
+      faqs: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+
+  if (!article || !article.isPublished) {
+    notFound();
+  }
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
     { label: "Travel Guides", href: "/travel-guides" },
-    { label: "Manali First-Timer's Guide" },
+    { label: article.title },
   ];
 
   const articleJsonLd = buildArticleJsonLd({
-    title: guideTitle,
-    description:
-      "Everything you need to know before visiting Manali: best seasons, top scenic viewpoints, local Himachali cuisine, and essential packing tips.",
+    title: article.title,
+    description: article.excerpt ?? `Comprehensive travel guide: ${article.title}`,
     url: `/travel-guides/${slug}`,
-    image: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=1200&q=80",
-    publishedAt: new Date("2025-01-15"),
-    authorName: "Aarav Sharma",
+    image: article.featuredImage?.url,
+    publishedAt: article.publishedAt ?? undefined,
+    authorName: article.author.displayName,
   });
+
+  const formattedDate = article.publishedAt
+    ? new Date(article.publishedAt).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "Recently Published";
 
   return (
     <>
@@ -61,101 +106,149 @@ export default async function GuideDetailPage({ params }: GuidePageProps) {
           <Container size="narrow">
             <Breadcrumb items={breadcrumbs} className="mb-6" />
 
-            <div className="flex items-center gap-2 mb-4">
-              <Badge variant="category">Travel Guide</Badge>
-              <Badge variant="duration">7 Min Read</Badge>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <Badge variant="category">{article.type}</Badge>
+              {article.readingTimeMin && (
+                <Badge variant="duration">{article.readingTimeMin} Min Read</Badge>
+              )}
+              {article.destination && (
+                <Badge variant="tag">
+                  {article.destination.name}, {article.destination.region.country.name}
+                </Badge>
+              )}
             </div>
 
             <Heading as="h1" size="2xl">
-              {guideTitle}
+              {article.title}
             </Heading>
 
+            {article.excerpt && (
+              <p className="mt-4 text-xl font-serif text-stone-600 leading-relaxed italic">
+                {article.excerpt}
+              </p>
+            )}
+
+            {/* Author Byline */}
             <div className="mt-6 flex items-center gap-4 border-y border-stone-200/80 py-4 text-sm text-stone-600">
               <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center font-bold text-amber-800">
-                AS
+                {article.author.displayName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
               </div>
               <div>
-                <p className="font-semibold text-stone-900">Aarav Sharma</p>
-                <p className="text-xs text-stone-500">Senior Himalayan Journalist · Published Jan 2025</p>
+                <p className="font-semibold text-stone-900">{article.author.displayName}</p>
+                <p className="text-xs text-stone-500">
+                  {article.author.bio ?? "Travel Writer"} · Published {formattedDate}
+                </p>
               </div>
             </div>
 
             {/* Featured Image */}
-            <div className="mt-8 relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-stone-200">
-              <Image
-                src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=1200&q=80"
-                alt="Manali valley scenic view"
-                fill
-                sizes="(max-width: 1024px) 100vw, 768px"
-                className="object-cover"
-                priority
-              />
-            </div>
+            {article.featuredImage && (
+              <div className="mt-8 relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-stone-200 shadow-sm">
+                <Image
+                  src={article.featuredImage.url}
+                  alt={article.featuredImage.altText || article.title}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 768px"
+                  className="object-cover"
+                  priority
+                />
+                {article.featuredImage.credit && (
+                  <div className="absolute bottom-3 right-3 rounded bg-black/60 px-2 py-1 text-xs text-white backdrop-blur-sm">
+                    Photo: {article.featuredImage.credit}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Editorial Body */}
             <div className="mt-10 space-y-6 text-stone-700 leading-relaxed text-lg font-serif">
-              <p>
-                Few Himalayan landscapes evoke as vivid a sense of adventure as the Kullu Valley. Flanked by high alpine ridges and blanketed in ancient deodar cedar forests, Manali sits as both a serene sanctuary and a launching pad for daring journeys into Lahaul, Spiti, and Ladakh.
-              </p>
-
-              <h2 className="font-sans text-2xl font-bold text-stone-900 pt-4">
-                1. Best Seasons to Experience Manali
-              </h2>
-              <p className="font-sans text-base text-stone-600">
-                Depending on your travel preferences, the valley offers two distinct personalities:
-              </p>
-              <ul className="font-sans text-base text-stone-600 list-disc pl-5 space-y-2">
-                <li>
-                  <strong className="text-stone-900">The Winter Snowscape (December - February):</strong> Heavy snowfall transforms Solang Valley and Upper Manali into a premier skiing haven. Temperatures hover between -2°C and 8°C.
-                </li>
-                <li>
-                  <strong className="text-stone-900">The Spring Awakening (March - June):</strong> Wildflowers bloom across terrace meadows and apple orchards burst with white blossoms. Perfect for paragliding and high mountain passes.
-                </li>
-              </ul>
-
-              <h2 className="font-sans text-2xl font-bold text-stone-900 pt-4">
-                2. Unmissable Geographic Highlights
-              </h2>
-              <p className="font-sans text-base text-stone-600">
-                To capture the authentic character of the valley, explore beyond the commercial Mall Road:
-              </p>
-              <div className="font-sans not-prose my-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Link
-                  href="/places/solang-valley"
-                  className="rounded-xl border border-stone-200 p-4 hover:border-amber-500 transition-colors"
-                >
-                  <h4 className="font-bold text-stone-900">Solang Valley →</h4>
-                  <p className="text-xs text-stone-500 mt-1">Alpine meadows and adventure sports hub</p>
-                </Link>
-                <Link
-                  href="/places/hidimba-temple"
-                  className="rounded-xl border border-stone-200 p-4 hover:border-amber-500 transition-colors"
-                >
-                  <h4 className="font-bold text-stone-900">Hidimba Devi Temple →</h4>
-                  <p className="text-xs text-stone-500 mt-1">16th-century pagoda inside cedar sanctuary</p>
-                </Link>
-              </div>
-
-              <h2 className="font-sans text-2xl font-bold text-stone-900 pt-4">
-                3. Essential Logistical Tips
-              </h2>
-              <p className="font-sans text-base text-stone-600">
-                Allow yourself 24 hours of relaxed pacing upon arrival if you are continuing upward past 3,000 meters. Always support local Himachali homestays and remember to leave mountain trails cleaner than you found them.
-              </p>
+              {article.content ? (
+                article.content.split("\n\n").map((para, i) => {
+                  if (para.startsWith("## ")) {
+                    return (
+                      <h2 key={i} className="text-2xl font-sans font-bold text-stone-900 pt-6">
+                        {para.replace("## ", "")}
+                      </h2>
+                    );
+                  }
+                  if (para.startsWith("### ")) {
+                    return (
+                      <h3 key={i} className="text-xl font-sans font-semibold text-stone-900 pt-4">
+                        {para.replace("### ", "")}
+                      </h3>
+                    );
+                  }
+                  return <p key={i}>{para}</p>;
+                })
+              ) : (
+                <p>Full guide content coming soon.</p>
+              )}
             </div>
 
-            {/* Next Itinerary Card */}
-            <div className="mt-12 rounded-2xl bg-stone-50 border border-stone-200 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <span className="text-xs font-semibold uppercase text-amber-600">Ready to plan?</span>
-                <h4 className="font-serif text-lg font-bold text-stone-900 mt-1">
-                  View the 4-Day Manali Adventure Itinerary
-                </h4>
+            {/* Tags */}
+            {article.tags.length > 0 && (
+              <div className="mt-10 pt-6 border-t border-stone-200 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-stone-400 mr-2">
+                  Tagged:
+                </span>
+                {article.tags.map((t) => (
+                  <span
+                    key={t.tag.id}
+                    className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700"
+                  >
+                    #{t.tag.name}
+                  </span>
+                ))}
               </div>
-              <Link href="/itineraries/4-days-manali-adventure">
-                <Button variant="primary">View Itinerary</Button>
-              </Link>
-            </div>
+            )}
+
+            {/* Article FAQs */}
+            {article.faqs.length > 0 && (
+              <div className="mt-12 pt-8 border-t border-stone-200">
+                <Heading as="h2" size="md" className="mb-6">
+                  Frequently Asked Questions
+                </Heading>
+                <div className="space-y-4">
+                  {article.faqs.map((faq) => (
+                    <div
+                      key={faq.id}
+                      className="p-5 rounded-xl border border-stone-200 bg-stone-50/50"
+                    >
+                      <h3 className="font-semibold text-stone-900 text-base">
+                        {faq.question}
+                      </h3>
+                      <p className="mt-2 text-stone-600 text-sm leading-relaxed">
+                        {faq.answer}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Back Callout */}
+            {article.destination && (
+              <div className="mt-12 p-8 rounded-2xl bg-amber-50/60 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="font-serif font-bold text-stone-900 text-lg">
+                    Planning a journey to {article.destination.name}?
+                  </h4>
+                  <p className="text-stone-600 text-sm mt-1">
+                    Discover landmarks, day-by-day itineraries, and local stays.
+                  </p>
+                </div>
+                <Link
+                  href={`/destinations/${article.destination.region.country.slug}/${article.destination.region.slug}/${article.destination.slug}`}
+                >
+                  <Button variant="primary" size="sm">
+                    Explore {article.destination.name}
+                  </Button>
+                </Link>
+              </div>
+            )}
           </Container>
         </Section>
       </article>

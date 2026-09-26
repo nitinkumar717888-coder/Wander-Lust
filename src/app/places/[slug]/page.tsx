@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Heading } from "@/components/ui/Heading";
@@ -18,42 +20,89 @@ export async function generateMetadata({
   params,
 }: PlacePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const name = slug
-    .split("-")
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(" ");
+
+  const place = await db.place.findUnique({
+    where: { slug },
+    include: {
+      destination: {
+        include: {
+          region: { include: { country: true } },
+        },
+      },
+      featuredImage: true,
+    },
+  });
+
+  if (!place) {
+    return generatePageMetadata({
+      title: "Place Not Found",
+      description: "The requested place could not be found.",
+      path: `/places/${slug}`,
+      noIndex: true,
+    });
+  }
+
+  const title = `${place.name} — Hours, Tickets & Visiting Guide`;
+  const description =
+    place.shortDescription ||
+    `Complete guide to visiting ${place.name} in ${place.destination.name}, ${place.destination.region.name}. Practical tips, hours, and directions.`;
 
   return generatePageMetadata({
-    title: `${name} — Hours, Tickets & Visiting Guide`,
-    description: `Complete guide to visiting ${name}. Practical visiting tips, admission fees, optimal hours, and how to reach.`,
+    title,
+    description,
     path: `/places/${slug}`,
+    ogImageUrl: place.featuredImage?.url,
   });
 }
 
 export default async function PlaceDetailPage({ params }: PlacePageProps) {
   const { slug } = await params;
-  const placeName = slug
-    .split("-")
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(" ");
+
+  const place = await db.place.findUnique({
+    where: { slug },
+    include: {
+      category: true,
+      featuredImage: true,
+      images: true,
+      destination: {
+        include: {
+          region: {
+            include: { country: true },
+          },
+        },
+      },
+      faqs: {
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+
+  if (!place) {
+    notFound();
+  }
+
+  const { destination } = place;
+  const { region } = destination;
+  const { country } = region;
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
     { label: "Destinations", href: "/destinations" },
-    { label: "India", href: "/destinations/india" },
-    { label: "Himachal Pradesh", href: "/destinations/india/himachal-pradesh" },
-    { label: placeName },
+    { label: country.name, href: `/destinations/${country.slug}` },
+    { label: region.name, href: `/destinations/${country.slug}/${region.slug}` },
+    { label: destination.name, href: `/destinations/${country.slug}/${region.slug}/${destination.slug}` },
+    { label: place.name },
   ];
 
   const placeJsonLd = buildPlaceJsonLd({
-    name: placeName,
-    description: `A premier travel landmark in the Kullu Valley of Himachal Pradesh, India.`,
+    name: place.name,
+    description: place.shortDescription ?? `${place.name} in ${destination.name}, ${region.name}`,
     url: `/places/${slug}`,
-    image: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=1200&q=80",
+    image: place.featuredImage?.url,
     address: {
-      addressLocality: "Manali",
-      addressRegion: "Himachal Pradesh",
-      addressCountry: "IN",
+      addressLocality: destination.name,
+      addressRegion: region.name,
+      addressCountry: country.code,
     },
   });
 
@@ -71,83 +120,139 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
           {/* Place Header */}
           <div className="max-w-3xl mb-8">
             <div className="flex flex-wrap items-center gap-2 mb-3">
-              <Badge variant="category">Point of Interest</Badge>
-              <Badge variant="duration">2-3 Hours Visit</Badge>
+              {place.category && (
+                <Badge variant="category">{place.category.name}</Badge>
+              )}
+              {place.visitDuration && (
+                <Badge variant="duration">{place.visitDuration}</Badge>
+              )}
             </div>
             <Heading as="h1" size="2xl">
-              {placeName}
+              {place.name}
             </Heading>
             <p className="mt-2 text-stone-500 font-medium">
-              Manali · Himachal Pradesh, India
+              {destination.name} · {region.name}, {country.name}
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             {/* Main Content Column */}
             <div className="lg:col-span-2 space-y-8">
-              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-stone-200">
-                <Image
-                  src="https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=1200&q=80"
-                  alt={`Scenic view of ${placeName}`}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 66vw"
-                  className="object-cover"
-                  priority
-                />
-              </div>
+              {place.featuredImage && (
+                <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-stone-200 shadow-sm">
+                  <Image
+                    src={place.featuredImage.url}
+                    alt={place.featuredImage.altText || `View of ${place.name}`}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 66vw"
+                    className="object-cover"
+                    priority
+                  />
+                  {place.featuredImage.credit && (
+                    <div className="absolute bottom-3 right-3 rounded bg-black/60 px-2 py-1 text-xs text-white backdrop-blur-sm">
+                      Photo: {place.featuredImage.credit}
+                    </div>
+                  )}
+                </div>
+              )}
 
-              <div>
-                <Heading as="h2" size="md">
-                  About {placeName}
-                </Heading>
-                <p className="mt-4 text-stone-600 leading-relaxed text-base">
-                  Located in the Himalayan foothills near Manali, {placeName} attracts travelers from all across the globe. Whether visiting for seasonal adventure sports, serene deodar pine trails, or cultural history, this landmark represents the distinctive highland character of Himachal Pradesh.
-                </p>
-              </div>
+              {/* Description */}
+              {place.description && (
+                <div>
+                  <Heading as="h2" size="md">
+                    About {place.name}
+                  </Heading>
+                  <div className="mt-4 prose prose-stone max-w-none text-stone-700 leading-relaxed text-base space-y-4">
+                    {place.description.split("\n\n").map((para, i) => (
+                      <p key={i}>{para}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              <div>
-                <Heading as="h2" size="md">
-                  Insider Visiting Tips
-                </Heading>
-                <ul className="mt-4 space-y-3 text-stone-600 text-sm list-disc pl-5">
-                  <li>Visit during early morning hours (before 9:30 AM) to experience the freshest mountain light and beat excursion buses.</li>
-                  <li>Carry comfortable tread footwear suited for uneven stone steps and pine needles.</li>
-                  <li>Dress in layers; alpine weather can shift rapidly from bright sunshine to chilly winds.</li>
-                </ul>
-              </div>
+              {/* Tips if available */}
+              {place.tips && (
+                <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200 text-stone-800">
+                  <h3 className="font-semibold text-amber-900 text-base mb-2">
+                    💡 Editorial Visiting Tips
+                  </h3>
+                  <p className="text-sm leading-relaxed">{place.tips}</p>
+                </div>
+              )}
+
+              {/* FAQs */}
+              {place.faqs && place.faqs.length > 0 && (
+                <div className="pt-6 border-t border-stone-200">
+                  <Heading as="h2" size="md" className="mb-4">
+                    Frequently Asked Questions
+                  </Heading>
+                  <div className="space-y-4">
+                    {place.faqs.map((faq) => (
+                      <div
+                        key={faq.id}
+                        className="p-4 rounded-xl border border-stone-200 bg-stone-50/60"
+                      >
+                        <h3 className="font-semibold text-stone-900 text-sm">
+                          {faq.question}
+                        </h3>
+                        <p className="mt-2 text-stone-600 text-sm leading-relaxed">
+                          {faq.answer}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Sidebar Details Card */}
-            <div>
-              <Card variant="bordered" className="sticky top-28">
+            {/* Sidebar Column */}
+            <div className="space-y-6">
+              <Card>
                 <CardHeader>
-                  <CardTitle>Visiting Essentials</CardTitle>
+                  <CardTitle className="text-lg">Visiting Essentials</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm">
                   <div>
-                    <span className="font-semibold text-stone-800 block">Recommended Duration</span>
-                    <span className="text-stone-500">2 - 3 Hours</span>
+                    <span className="font-semibold text-stone-900 block">Admission</span>
+                    <span className="text-stone-600">
+                      {place.entryFee ?? "Free Entry"}
+                    </span>
                   </div>
                   <div>
-                    <span className="font-semibold text-stone-800 block">Entry Fee</span>
-                    <span className="text-stone-500">Free admission (Individual activity fees apply)</span>
+                    <span className="font-semibold text-stone-900 block">Opening Hours</span>
+                    <span className="text-stone-600">
+                      {place.openingHours ?? "Open daily, sunrise to sunset"}
+                    </span>
                   </div>
-                  <div>
-                    <span className="font-semibold text-stone-800 block">Best Season</span>
-                    <span className="text-stone-500">October to June</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-stone-800 block">Location Coordinates</span>
-                    <span className="text-stone-500">32.2432° N, 77.1892° E</span>
-                  </div>
+                  {place.visitDuration && (
+                    <div>
+                      <span className="font-semibold text-stone-900 block">Recommended Time</span>
+                      <span className="text-stone-600">{place.visitDuration}</span>
+                    </div>
+                  )}
+                  {place.address && (
+                    <div>
+                      <span className="font-semibold text-stone-900 block">Address</span>
+                      <span className="text-stone-600">{place.address}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-                  <div className="pt-4 border-t border-stone-100">
-                    <Link href="/destinations/india/himachal-pradesh">
-                      <Button variant="outline" className="w-full">
-                        Explore Region
-                      </Button>
-                    </Link>
-                  </div>
+              {/* Destination card link */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Part of {destination.name}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-stone-600 space-y-3">
+                  <p>
+                    Plan your complete trip to {destination.name} with guides, hotels, and itineraries.
+                  </p>
+                  <Link href={`/destinations/${country.slug}/${region.slug}/${destination.slug}`}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Explore {destination.name} →
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>
