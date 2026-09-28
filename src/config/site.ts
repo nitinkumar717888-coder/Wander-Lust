@@ -9,15 +9,15 @@
  */
 
 export const siteConfig = {
-  name: "Wanderlust",
-  tagline: "Discover the World's Most Extraordinary Places",
+  name: "Routes & Stories",
+  tagline: "Discover Extraordinary Routes, Sacred Shrines & Field Notes",
   description:
-    "In-depth travel guides, destination inspiration, and curated itineraries to help you plan your next adventure.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://wanderlust.travel",
+    "Editorial travel discovery engine. In-depth travel guides, destination intelligence, and day-by-day curated itineraries.",
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://routesandstories.vercel.app",
   ogImage: "/images/og-default.jpg",
-  twitterHandle: "@wanderlusttravel",
+  twitterHandle: "@routesandstories",
   locale: "en_US",
-  author: "Wanderlust Editorial Team",
+  author: "Routes & Stories Editorial Team",
 } as const;
 
 export const navLinks = [
@@ -29,17 +29,17 @@ export const navLinks = [
 
 export const footerLinks = {
   explore: [
-    { label: "All Destinations", href: "/destinations" },
+    { label: "Destinations", href: "/destinations" },
+    { label: "Places to Visit", href: "/places" },
     { label: "Travel Guides", href: "/travel-guides" },
-    { label: "Itineraries", href: "/itineraries" },
-    { label: "Things To Do", href: "/things-to-do" },
-    { label: "Places", href: "/places" },
+    { label: "Curated Itineraries", href: "/itineraries" },
   ],
   company: [
-    { label: "About Us", href: "/about" },
+    { label: "About", href: "/about" },
     { label: "Contact", href: "/contact" },
-    { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Service", href: "/terms" },
+    { label: "Privacy Policy", href: "/privacy-policy" },
+    { label: "Terms & Conditions", href: "/terms" },
+    { label: "Travel Disclaimer", href: "/disclaimer" },
   ],
 } as const;
 
@@ -57,4 +57,9 @@ export const routes = {
   thingsToDo: "/things-to-do",
   thingToDo: (slug: string) => `/things-to-do/${slug}`,
   search: "/search",
+  about: "/about",
+  contact: "/contact",
+  privacyPolicy: "/privacy-policy",
+  terms: "/terms",
+  disclaimer: "/disclaimer",
 } as const;

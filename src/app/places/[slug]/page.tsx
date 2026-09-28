@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { getPlaceBySlug } from "@/lib/data/places";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Heading } from "@/components/ui/Heading";
@@ -10,7 +10,8 @@ import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { generatePageMetadata, buildPlaceJsonLd } from "@/lib/seo";
+import { ArticleContent } from "@/components/ui/ArticleContent";
+import { generatePageMetadata, buildPlaceJsonLd, buildFaqJsonLd } from "@/lib/seo";
 
 interface PlacePageProps {
   params: Promise<{ slug: string }>;
@@ -21,17 +22,7 @@ export async function generateMetadata({
 }: PlacePageProps): Promise<Metadata> {
   const { slug } = await params;
 
-  const place = await db.place.findUnique({
-    where: { slug },
-    include: {
-      destination: {
-        include: {
-          region: { include: { country: true } },
-        },
-      },
-      featuredImage: true,
-    },
-  });
+  const place = await getPlaceBySlug(slug);
 
   if (!place) {
     return generatePageMetadata({
@@ -42,7 +33,7 @@ export async function generateMetadata({
     });
   }
 
-  const title = `${place.name} — Hours, Tickets & Visiting Guide`;
+  const title = `${place.name} — Visiting Guide & Highlights`;
   const description =
     place.shortDescription ||
     `Complete guide to visiting ${place.name} in ${place.destination.name}, ${place.destination.region.name}. Practical tips, hours, and directions.`;
@@ -58,24 +49,7 @@ export async function generateMetadata({
 export default async function PlaceDetailPage({ params }: PlacePageProps) {
   const { slug } = await params;
 
-  const place = await db.place.findUnique({
-    where: { slug },
-    include: {
-      category: true,
-      featuredImage: true,
-      images: true,
-      destination: {
-        include: {
-          region: {
-            include: { country: true },
-          },
-        },
-      },
-      faqs: {
-        orderBy: { sortOrder: "asc" },
-      },
-    },
-  });
+  const place = await getPlaceBySlug(slug);
 
   if (!place) {
     notFound();
@@ -87,7 +61,6 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
-    { label: "Destinations", href: "/destinations" },
     { label: country.name, href: `/destinations/${country.slug}` },
     { label: region.name, href: `/destinations/${country.slug}/${region.slug}` },
     { label: destination.name, href: `/destinations/${country.slug}/${region.slug}/${destination.slug}` },
@@ -106,12 +79,20 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
     },
   });
 
+  const faqJsonLd = buildFaqJsonLd(place.faqs);
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(placeJsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
 
       <Section padding="lg">
         <Container size="default">
@@ -131,7 +112,12 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
               {place.name}
             </Heading>
             <p className="mt-2 text-stone-500 font-medium">
-              {destination.name} · {region.name}, {country.name}
+              <Link
+                href={`/destinations/${country.slug}/${region.slug}/${destination.slug}`}
+                className="hover:text-amber-700 transition-colors"
+              >
+                {destination.name} · {region.name}, {country.name}
+              </Link>
             </p>
           </div>
 
@@ -162,11 +148,7 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
                   <Heading as="h2" size="md">
                     About {place.name}
                   </Heading>
-                  <div className="mt-4 prose prose-stone max-w-none text-stone-700 leading-relaxed text-base space-y-4">
-                    {place.description.split("\n\n").map((para, i) => (
-                      <p key={i}>{para}</p>
-                    ))}
-                  </div>
+                  <ArticleContent content={place.description} className="mt-4 text-base font-sans text-stone-700" />
                 </div>
               )}
 
@@ -246,7 +228,7 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
                 </CardHeader>
                 <CardContent className="text-sm text-stone-600 space-y-3">
                   <p>
-                    Plan your complete trip to {destination.name} with guides, hotels, and itineraries.
+                    Plan your complete journey to {destination.name} with curated guides, landmarks, and day-by-day itineraries.
                   </p>
                   <Link href={`/destinations/${country.slug}/${region.slug}/${destination.slug}`}>
                     <Button variant="outline" size="sm" className="w-full">

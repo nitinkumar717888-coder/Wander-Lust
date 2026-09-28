@@ -2,36 +2,26 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
  import { notFound } from "next/navigation";
- import { db } from "@/lib/db";
- import { Container } from "@/components/ui/Container";
- import { Section } from "@/components/ui/Section";
- import { Heading } from "@/components/ui/Heading";
- import { Breadcrumb } from "@/components/ui/Breadcrumb";
- import { Badge } from "@/components/ui/Badge";
- import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
- import { Button } from "@/components/ui/Button";
- import { generatePageMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
+ import { getItineraryBySlug } from "@/lib/data/itineraries";
+import { Container } from "@/components/ui/Container";
+import { Section } from "@/components/ui/Section";
+import { Heading } from "@/components/ui/Heading";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { Badge } from "@/components/ui/Badge";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { generatePageMetadata, buildItineraryJsonLd } from "@/lib/seo";
 
 interface ItineraryPageProps {
   params: Promise<{ slug: string }>;
- }
+}
 
 export async function generateMetadata({
   params,
 }: ItineraryPageProps): Promise<Metadata> {
   const { slug } = await params;
 
-  const itinerary = await db.itinerary.findUnique({
-    where: { slug },
-    include: {
-      destination: {
-        include: {
-          region: { include: { country: true } },
-        },
-      },
-      featuredImage: true,
-    },
-  });
+  const itinerary = await getItineraryBySlug(slug);
 
   if (!itinerary) {
     return generatePageMetadata({
@@ -48,31 +38,16 @@ export async function generateMetadata({
     path: `/itineraries/${slug}`,
     ogImageUrl: itinerary.featuredImage?.url,
   });
- }
+}
 
 export default async function ItineraryDetailPage({
   params,
 }: ItineraryPageProps) {
   const { slug } = await params;
 
-  const itinerary = await db.itinerary.findUnique({
-    where: { slug },
-    include: {
-      featuredImage: true,
-      destination: {
-        include: {
-          region: {
-            include: { country: true },
-          },
-        },
-      },
-      days: {
-        orderBy: { dayNumber: "asc" },
-      },
-    },
-  });
+  const itinerary = await getItineraryBySlug(slug);
 
-  if (!itinerary || !itinerary.isPublished) {
+  if (!itinerary) {
     notFound();
   }
 
@@ -87,15 +62,20 @@ export default async function ItineraryDetailPage({
     { label: `${itinerary.durationDays} Days in ${destinationName}` },
   ];
 
-  const breadcrumbJsonLd = buildBreadcrumbJsonLd(
-    breadcrumbs.map((b) => ({ name: b.label, href: b.href }))
-  );
+  const itineraryJsonLd = buildItineraryJsonLd({
+    title: itinerary.title,
+    description: itinerary.summary ?? undefined,
+    url: `/itineraries/${slug}`,
+    image: itinerary.featuredImage?.url,
+    durationDays: itinerary.durationDays,
+    destinationName: itinerary.destination?.name,
+  });
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itineraryJsonLd) }}
       />
 
       <Section padding="lg">
@@ -122,7 +102,18 @@ export default async function ItineraryDetailPage({
               </p>
             )}
             <p className="mt-2 text-stone-500 font-medium text-sm">
-              Destination: {destinationName} · {locationLabel}
+              Destination:{" "}
+              {itinerary.destination ? (
+                <Link
+                  href={`/destinations/${itinerary.destination.region.country.slug}/${itinerary.destination.region.slug}/${itinerary.destination.slug}`}
+                  className="hover:text-amber-700 underline decoration-stone-300 underline-offset-2 transition-colors"
+                >
+                  {destinationName}
+                </Link>
+              ) : (
+                destinationName
+              )}{" "}
+              · {locationLabel}
             </p>
           </div>
 

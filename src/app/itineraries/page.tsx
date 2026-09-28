@@ -5,6 +5,7 @@ import { Heading } from "@/components/ui/Heading";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ImageCard } from "@/components/ui/ImageCard";
 import { generatePageMetadata } from "@/lib/seo";
+import { getCuratedItineraries } from "@/lib/data/itineraries";
 
 export const metadata: Metadata = generatePageMetadata({
   title: "Curated Travel Itineraries — Day-by-Day Plans",
@@ -12,27 +13,13 @@ export const metadata: Metadata = generatePageMetadata({
   path: "/itineraries",
 });
 
-export default function ItinerariesIndexPage() {
+export default async function ItinerariesIndexPage() {
   const breadcrumbs = [
     { label: "Home", href: "/" },
     { label: "Itineraries" },
   ];
 
-  const itineraries = [
-    {
-      title: "4 Days in Manali: From Alpine Meadows to Cedar Temples",
-      subtitle: "4 Days · Moderate Pace",
-      description: "A balanced route covering alpine adventures in Solang Valley, culture in Old Manali, and geothermal springs.",
-      href: "/itineraries/4-days-manali-adventure",
-      badge: "4 Days",
-      image: {
-        id: "img-itin-manali",
-        url: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=800&q=80",
-        altText: "Pine mountains around Manali valley",
-      },
-      meta: "Budget: Mid-range · Season: Year-round",
-    },
-  ];
+  const itineraries = await getCuratedItineraries(50);
 
   return (
     <Section padding="lg">
@@ -48,20 +35,34 @@ export default function ItinerariesIndexPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {itineraries.map((itinerary) => (
-            <ImageCard
-              key={itinerary.title}
-              title={itinerary.title}
-              subtitle={itinerary.subtitle}
-              description={itinerary.description}
-              href={itinerary.href}
-              badge={itinerary.badge}
-              image={itinerary.image}
-              meta={itinerary.meta}
-            />
-          ))}
-        </div>
+        {itineraries.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {itineraries.map((itinerary) => (
+              <ImageCard
+                key={itinerary.id}
+                title={itinerary.title}
+                subtitle={`${itinerary.durationDays} Days · ${itinerary.difficulty || "Moderate Pace"}`}
+                description={itinerary.summary || ""}
+                href={`/itineraries/${itinerary.slug}`}
+                badge={`${itinerary.durationDays} Days`}
+                image={
+                  itinerary.featuredImage
+                    ? {
+                        id: itinerary.featuredImage.id,
+                        url: itinerary.featuredImage.url,
+                        altText: itinerary.featuredImage.altText,
+                      }
+                    : undefined
+                }
+                meta={itinerary.budgetRange ? `Budget: ${itinerary.budgetRange}` : undefined}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-stone-50 rounded-2xl border border-stone-200">
+            <p className="text-stone-500 text-lg">No itineraries available at this time.</p>
+          </div>
+        )}
       </Container>
     </Section>
   );

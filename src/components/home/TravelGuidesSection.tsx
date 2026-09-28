@@ -6,23 +6,18 @@ import { Heading } from "@/components/ui/Heading";
 import { type ArticleSummary } from "@/types";
 
 interface TravelGuidesSectionProps {
-  featured: ArticleSummary;
+  featured?: ArticleSummary | null;
   supporting: ArticleSummary[];
 }
 
-/**
- * TravelGuidesSection — "Travel guides"
- *
- * Magazine-style layout:
- * - One dominant featured article
- * - Two supporting articles in an editorial vertical stack
- *
- * Structured strictly around the ArticleSummary domain model.
- */
 export function TravelGuidesSection({
   featured,
   supporting,
 }: TravelGuidesSectionProps) {
+  if (!featured) {
+    return null;
+  }
+
   return (
     <Section padding="lg" className="bg-white">
       <Container size="default">
@@ -102,7 +97,11 @@ export function TravelGuidesSection({
             </div>
 
             <Link
-              href={`/travel-guides/${featured.slug}`}
+              href={
+                featured.slug === "best-places-to-visit-in-manali"
+                  ? "/best-places-to-visit-in-manali"
+                  : `/travel-guides/${featured.slug}`
+              }
               className="absolute inset-0 rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               aria-label={`Read guide: ${featured.title}`}
             >
@@ -154,7 +153,11 @@ export function TravelGuidesSection({
                 </div>
 
                 <Link
-                  href={`/travel-guides/${article.slug}`}
+                  href={
+                    article.slug === "best-places-to-visit-in-manali"
+                      ? "/best-places-to-visit-in-manali"
+                      : `/travel-guides/${article.slug}`
+                  }
                   className="absolute inset-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
                   aria-label={`Read article: ${article.title}`}
                 >
@@ -166,7 +169,7 @@ export function TravelGuidesSection({
             {/* Editorial Standard Trust Note */}
             <div className="rounded-2xl border border-dashed border-stone-200 p-5 bg-stone-50/50">
               <h5 className="font-serif text-sm font-bold text-stone-800">
-                Wanderlust Editorial Promise
+                Routes &amp; Stories Editorial Promise
               </h5>
               <p className="mt-1 text-xs text-stone-500 leading-relaxed">
                 All guides are compiled through on-the-ground reconnaissance, verified road pass statuses, and authentic local cultural respect.

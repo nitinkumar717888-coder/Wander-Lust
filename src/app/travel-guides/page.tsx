@@ -5,6 +5,7 @@ import { Heading } from "@/components/ui/Heading";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ImageCard } from "@/components/ui/ImageCard";
 import { generatePageMetadata } from "@/lib/seo";
+import { getTravelGuides } from "@/lib/data/articles";
 
 export const metadata: Metadata = generatePageMetadata({
   title: "Travel Guides — In-Depth Destination Manuals",
@@ -12,27 +13,13 @@ export const metadata: Metadata = generatePageMetadata({
   path: "/travel-guides",
 });
 
-export default function TravelGuidesIndexPage() {
+export default async function TravelGuidesIndexPage() {
   const breadcrumbs = [
     { label: "Home", href: "/" },
     { label: "Travel Guides" },
   ];
 
-  const guides = [
-    {
-      title: "The Definitive First-Timer's Guide to Manali & Kullu Valley",
-      subtitle: "7 Min Read · Editorial Guide",
-      description: "Everything you need to know before visiting Manali: best seasons, top scenic viewpoints, local Himachali cuisine, and essential packing tips.",
-      href: "/travel-guides/manali-first-timers-guide",
-      badge: "Comprehensive Guide",
-      image: {
-        id: "img-guide-manali",
-        url: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=800&q=80",
-        altText: "Mountain vistas in Kullu Valley",
-      },
-      meta: "By Aarav Sharma · Updated recently",
-    },
-  ];
+  const guides = await getTravelGuides(50);
 
   return (
     <Section padding="lg">
@@ -48,20 +35,38 @@ export default function TravelGuidesIndexPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {guides.map((guide) => (
-            <ImageCard
-              key={guide.title}
-              title={guide.title}
-              subtitle={guide.subtitle}
-              description={guide.description}
-              href={guide.href}
-              badge={guide.badge}
-              image={guide.image}
-              meta={guide.meta}
-            />
-          ))}
-        </div>
+        {guides.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {guides.map((guide) => (
+              <ImageCard
+                key={guide.id}
+                title={guide.title}
+                subtitle={`${guide.readingTimeMin || 5} Min Read · Editorial Guide`}
+                description={guide.excerpt || ""}
+                href={
+                  guide.slug === "best-places-to-visit-in-manali"
+                    ? "/best-places-to-visit-in-manali"
+                    : `/travel-guides/${guide.slug}`
+                }
+                badge="Comprehensive Guide"
+                image={
+                  guide.featuredImage
+                    ? {
+                        id: guide.featuredImage.id,
+                        url: guide.featuredImage.url,
+                        altText: guide.featuredImage.altText,
+                      }
+                    : undefined
+                }
+                meta={`By ${guide.author.displayName}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-stone-50 rounded-2xl border border-stone-200">
+            <p className="text-stone-500 text-lg">No travel guides available at this time.</p>
+          </div>
+        )}
       </Container>
     </Section>
   );

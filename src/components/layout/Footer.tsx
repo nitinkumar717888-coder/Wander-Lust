@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/Container";
+import { Logo } from "@/components/ui/Logo";
 import { siteConfig } from "@/config/site";
 
 /**
@@ -7,9 +8,9 @@ import { siteConfig } from "@/config/site";
  *
  * Structure:
  * - Brand & Mission statement
- * - Explore navigation (Destinations, Places, Travel Guides, Itineraries)
- * - Company & Editorial Standards
- * - Newsletter subscription placeholder
+ * - Primary Explore navigation (Destinations, Places, Travel Guides, Itineraries)
+ * - Company & Editorial Standards (About, Contact, Privacy, Terms, Disclaimer)
+ * - Field Notes Dispatch newsletter announcement
  * - Clean semantic legal & copyright bar
  *
  * Server Component — zero client-side JavaScript.
@@ -22,14 +23,14 @@ export function Footer() {
     { label: "Places to Visit", href: "/places" },
     { label: "Travel Guides", href: "/travel-guides" },
     { label: "Curated Itineraries", href: "/itineraries" },
-    { label: "Things to Do", href: "/things-to-do" },
   ];
 
   const editorialLinks = [
-    { label: "About Wanderlust", href: "/about" },
-    { label: "Editorial Standards", href: "/about#standards" },
-    { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Service", href: "/terms" },
+    { label: `About ${siteConfig.name}`, href: "/about" },
+    { label: "Contact Editorial Desk", href: "/contact" },
+    { label: "Privacy Policy", href: "/privacy-policy" },
+    { label: "Terms & Conditions", href: "/terms" },
+    { label: "Travel Disclaimer", href: "/disclaimer" },
   ];
 
   return (
@@ -40,15 +41,14 @@ export function Footer() {
           <div className="lg:col-span-4">
             <Link
               href="/"
-              className="inline-flex items-center gap-2.5 text-white font-bold text-xl mb-4 group"
-              aria-label="Wanderlust homepage"
+              className="inline-flex items-center gap-2.5 text-white font-bold text-xl mb-4 group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              aria-label={`${siteConfig.name} homepage`}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-stone-950 font-serif font-black text-lg">
-                W
-              </span>
-              <span className="font-serif tracking-tight text-white group-hover:text-amber-400 transition-colors">
-                {siteConfig.name}
-              </span>
+              <Logo
+                variant="full"
+                textClassName="text-white group-hover:text-amber-400 transition-colors"
+                responsiveText={false}
+              />
             </Link>
             <p className="text-sm leading-relaxed text-stone-400 max-w-sm">
               An independent travel discovery platform dedicated to uncovering authentic places, natural sanctuaries, and cultural landscapes with journalistic integrity.
@@ -68,7 +68,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-stone-400 hover:text-amber-400 transition-colors duration-150"
+                    className="text-sm text-stone-400 hover:text-amber-400 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded"
                   >
                     {link.label}
                   </Link>
@@ -87,7 +87,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-stone-400 hover:text-amber-400 transition-colors duration-150"
+                    className="text-sm text-stone-400 hover:text-amber-400 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded"
                   >
                     {link.label}
                   </Link>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { getDestinationBySlug } from "@/lib/data/destinations";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Heading } from "@/components/ui/Heading";
@@ -10,7 +10,11 @@ import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/Card";
 import { ImageCard } from "@/components/ui/ImageCard";
-import { generatePageMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
+import {
+  generatePageMetadata,
+  buildDestinationJsonLd,
+  buildFaqJsonLd,
+} from "@/lib/seo";
 
 interface DestinationPageProps {
   params: Promise<{
@@ -25,18 +29,9 @@ export async function generateMetadata({
 }: DestinationPageProps): Promise<Metadata> {
   const { country, region, destination } = await params;
 
-  const dest = await db.destination.findFirst({
-    where: {
-      slug: destination,
-      region: {
-        slug: region,
-        country: { slug: country },
-      },
-    },
-    include: {
-      region: { include: { country: true } },
-      featuredImage: true,
-    },
+  const dest = await getDestinationBySlug(destination, {
+    regionSlug: region,
+    countrySlug: country,
   });
 
   if (!dest) {
@@ -61,45 +56,9 @@ export default async function DestinationDetailPage({
 }: DestinationPageProps) {
   const { country, region, destination } = await params;
 
-  const dest = await db.destination.findFirst({
-    where: {
-      slug: destination,
-      region: {
-        slug: region,
-        country: { slug: country },
-      },
-    },
-    include: {
-      region: {
-        include: { country: true },
-      },
-      featuredImage: true,
-      places: {
-        include: {
-          category: true,
-          featuredImage: true,
-        },
-        orderBy: { createdAt: "desc" },
-      },
-      articles: {
-        where: { isPublished: true },
-        include: {
-          author: true,
-          featuredImage: true,
-        },
-        orderBy: { publishedAt: "desc" },
-      },
-      itineraries: {
-        where: { isPublished: true },
-        include: {
-          featuredImage: true,
-        },
-        orderBy: { createdAt: "desc" },
-      },
-      faqs: {
-        orderBy: { sortOrder: "asc" },
-      },
-    },
+  const dest = await getDestinationBySlug(destination, {
+    regionSlug: region,
+    countrySlug: country,
   });
 
   if (!dest) {
@@ -108,22 +67,33 @@ export default async function DestinationDetailPage({
 
   const breadcrumbs = [
     { label: "Home", href: "/" },
-    { label: "Destinations", href: "/destinations" },
     { label: dest.region.country.name, href: `/destinations/${country}` },
     { label: dest.region.name, href: `/destinations/${country}/${region}` },
     { label: dest.name },
   ];
 
-  const breadcrumbJsonLd = buildBreadcrumbJsonLd(
-    breadcrumbs.map((b) => ({ name: b.label, href: b.href }))
-  );
+  const destinationJsonLd = buildDestinationJsonLd({
+    name: dest.name,
+    description: (dest.description || dest.tagline) ?? undefined,
+    url: `/destinations/${country}/${region}/${destination}`,
+    image: dest.featuredImage?.url,
+    containedInPlace: `${dest.region.name}, ${dest.region.country.name}`,
+  });
+
+  const faqJsonLd = buildFaqJsonLd(dest.faqs);
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(destinationJsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
 
       <Section padding="lg">
         <Container size="default">

@@ -16,7 +16,7 @@ import { ItinerariesSection } from "@/components/home/ItinerariesSection";
 import { PlanningCtaSection } from "@/components/home/PlanningCtaSection";
 
 export const metadata: Metadata = generatePageMetadata({
-  title: "Wanderlust — Discover the World's Most Extraordinary Places",
+  title: "Routes & Stories — Discover Extraordinary Routes & Sacred Shrines",
   description:
     "Editorial travel discovery engine. Uncover curated destinations, remote shrines, road-tested guides, and day-by-day itineraries.",
   path: "/",

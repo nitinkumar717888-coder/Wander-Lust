@@ -29,30 +29,38 @@ async function main() {
     },
   });
 
-  // 3. Featured Image placeholders
-  const manaliImg = await prisma.image.create({
-    data: {
-      url: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=1200&q=80",
-      altText: "Snow-covered peaks and pine forests in Manali, Himachal Pradesh",
-      caption: "Panoramic vista over the Solang Valley near Manali",
-      credit: "Unsplash / Travel Photography",
-      width: 1200,
-      height: 800,
-      mimeType: "image/jpeg",
-    },
-  });
+  // 3. Featured Image placeholders (Idempotent lookup/create)
+  const manaliImgUrl =
+    "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?auto=format&fit=crop&w=1200&q=80";
+  const manaliImg =
+    (await prisma.image.findFirst({ where: { url: manaliImgUrl } })) ??
+    (await prisma.image.create({
+      data: {
+        url: manaliImgUrl,
+        altText: "Snow-covered peaks and pine forests in Manali, Himachal Pradesh",
+        caption: "Panoramic vista over the Solang Valley near Manali",
+        credit: "Unsplash / Travel Photography",
+        width: 1200,
+        height: 800,
+        mimeType: "image/jpeg",
+      },
+    }));
 
-  const solangImg = await prisma.image.create({
-    data: {
-      url: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
-      altText: "Adventure sports and snowfields in Solang Valley",
-      caption: "Solang Valley alpine meadow in winter",
-      credit: "Unsplash",
-      width: 1200,
-      height: 800,
-      mimeType: "image/jpeg",
-    },
-  });
+  const solangImgUrl =
+    "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
+  const solangImg =
+    (await prisma.image.findFirst({ where: { url: solangImgUrl } })) ??
+    (await prisma.image.create({
+      data: {
+        url: solangImgUrl,
+        altText: "Adventure sports and snowfields in Solang Valley",
+        caption: "Solang Valley alpine meadow in winter",
+        credit: "Unsplash",
+        width: 1200,
+        height: 800,
+        mimeType: "image/jpeg",
+      },
+    }));
 
   // 4. Country: India
   const india = await prisma.country.upsert({
@@ -275,23 +283,36 @@ async function main() {
     },
   });
 
-  // 11. FAQ for Manali
-  await prisma.fAQ.createMany({
-    data: [
-      {
-        question: "When is the best time to see snow in Manali?",
-        answer: "Mid-December through February offers the highest probability of heavy snowfall in Manali town and Solang Valley.",
-        destinationId: manali.id,
-        sortOrder: 1,
+  // 11. FAQ for Manali (Individually idempotent lookup/create)
+  const faqsData = [
+    {
+      question: "When is the best time to see snow in Manali?",
+      answer: "Mid-December through February offers the highest probability of heavy snowfall in Manali town and Solang Valley.",
+      destinationId: manali.id,
+      sortOrder: 1,
+    },
+    {
+      question: "How do I reach Manali?",
+      answer: "The nearest airport is Bhuntar (KUU), 50 km away. Alternatively, Volvo overnight buses connect from New Delhi and Chandigarh.",
+      destinationId: manali.id,
+      sortOrder: 2,
+    },
+  ];
+
+  for (const faq of faqsData) {
+    const existingFaq = await prisma.fAQ.findFirst({
+      where: {
+        question: faq.question,
+        destinationId: faq.destinationId,
       },
-      {
-        question: "How do I reach Manali?",
-        answer: "The nearest airport is Bhuntar (KUU), 50 km away. Alternatively, Volvo overnight buses connect from New Delhi and Chandigarh.",
-        destinationId: manali.id,
-        sortOrder: 2,
-      },
-    ],
-  });
+    });
+
+    if (!existingFaq) {
+      await prisma.fAQ.create({
+        data: faq,
+      });
+    }
+  }
 
   console.log("Seeding completed successfully!");
 }

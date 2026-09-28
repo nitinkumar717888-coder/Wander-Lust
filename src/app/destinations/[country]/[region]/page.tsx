@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { getRegionBySlug } from "@/lib/data/regions";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Heading } from "@/components/ui/Heading";
@@ -9,7 +9,7 @@ import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ImageCard } from "@/components/ui/ImageCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { generatePageMetadata, buildBreadcrumbJsonLd } from "@/lib/seo";
+import { generatePageMetadata } from "@/lib/seo";
 
 interface RegionPageProps {
   params: Promise<{ country: string; region: string }>;
@@ -20,16 +20,7 @@ export async function generateMetadata({
 }: RegionPageProps): Promise<Metadata> {
   const { country, region } = await params;
 
-  const reg = await db.region.findFirst({
-    where: {
-      slug: region,
-      country: { slug: country },
-    },
-    include: {
-      country: true,
-      featuredImage: true,
-    },
-  });
+  const reg = await getRegionBySlug(region, country);
 
   if (!reg) {
     return generatePageMetadata({
@@ -51,22 +42,7 @@ export async function generateMetadata({
 export default async function RegionPage({ params }: RegionPageProps) {
   const { country, region } = await params;
 
-  const reg = await db.region.findFirst({
-    where: {
-      slug: region,
-      country: { slug: country },
-    },
-    include: {
-      country: true,
-      featuredImage: true,
-      destinations: {
-        include: {
-          featuredImage: true,
-        },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+  const reg = await getRegionBySlug(region, country);
 
   if (!reg) {
     notFound();
@@ -79,18 +55,8 @@ export default async function RegionPage({ params }: RegionPageProps) {
     { label: reg.name },
   ];
 
-  const breadcrumbJsonLd = buildBreadcrumbJsonLd(
-    breadcrumbs.map((b) => ({ name: b.label, href: b.href }))
-  );
-
   return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-
-      <Section padding="lg">
+    <Section padding="lg">
         <Container size="default">
           <Breadcrumb items={breadcrumbs} className="mb-6" />
 
@@ -163,6 +129,5 @@ export default async function RegionPage({ params }: RegionPageProps) {
           </div>
         </Container>
       </Section>
-    </>
   );
 }

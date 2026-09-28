@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
+import { notFound, permanentRedirect } from "next/navigation";
+import { getArticleBySlug } from "@/lib/data/articles";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Heading } from "@/components/ui/Heading";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { generatePageMetadata, buildArticleJsonLd } from "@/lib/seo";
+import { ArticleContent } from "@/components/ui/ArticleContent";
+import { generatePageMetadata, buildArticleJsonLd, buildFaqJsonLd } from "@/lib/seo";
 
 interface GuidePageProps {
   params: Promise<{ slug: string }>;
@@ -20,13 +21,16 @@ export async function generateMetadata({
 }: GuidePageProps): Promise<Metadata> {
   const { slug } = await params;
 
-  const article = await db.article.findUnique({
-    where: { slug },
-    include: {
-      author: true,
-      featuredImage: true,
-    },
-  });
+  if (slug === "best-places-to-visit-in-manali") {
+    return generatePageMetadata({
+      title: "Best Places to Visit in Manali: Attractions & 2–3 Day Plan",
+      description:
+        "Discover the best places to visit in Manali, including Old Manali, Solang Valley, Hidimba Temple, Vashisht, Jogini Falls, Sissu and more.",
+      path: "/best-places-to-visit-in-manali",
+    });
+  }
+
+  const article = await getArticleBySlug(slug);
 
   if (!article) {
     return generatePageMetadata({
@@ -38,7 +42,7 @@ export async function generateMetadata({
   }
 
   return generatePageMetadata({
-    title: `${article.title} | Wanderlust Editorial`,
+    title: article.title,
     description: article.excerpt || `Read our comprehensive travel guide: ${article.title}.`,
     path: `/travel-guides/${slug}`,
     ogImageUrl: article.featuredImage?.url,
@@ -48,26 +52,13 @@ export async function generateMetadata({
 export default async function GuideDetailPage({ params }: GuidePageProps) {
   const { slug } = await params;
 
-  const article = await db.article.findUnique({
-    where: { slug },
-    include: {
-      author: true,
-      featuredImage: true,
-      destination: {
-        include: {
-          region: { include: { country: true } },
-        },
-      },
-      tags: {
-        include: { tag: true },
-      },
-      faqs: {
-        orderBy: { sortOrder: "asc" },
-      },
-    },
-  });
+  if (slug === "best-places-to-visit-in-manali") {
+    permanentRedirect("/best-places-to-visit-in-manali");
+  }
 
-  if (!article || !article.isPublished) {
+  const article = await getArticleBySlug(slug);
+
+  if (!article) {
     notFound();
   }
 
@@ -86,6 +77,8 @@ export default async function GuideDetailPage({ params }: GuidePageProps) {
     authorName: article.author.displayName,
   });
 
+  const faqJsonLd = buildFaqJsonLd(article.faqs);
+
   const formattedDate = article.publishedAt
     ? new Date(article.publishedAt).toLocaleDateString("en-US", {
         year: "numeric",
@@ -100,6 +93,12 @@ export default async function GuideDetailPage({ params }: GuidePageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
 
       <article>
         <Section padding="lg">
@@ -112,9 +111,13 @@ export default async function GuideDetailPage({ params }: GuidePageProps) {
                 <Badge variant="duration">{article.readingTimeMin} Min Read</Badge>
               )}
               {article.destination && (
-                <Badge variant="tag">
-                  {article.destination.name}, {article.destination.region.country.name}
-                </Badge>
+                <Link
+                  href={`/destinations/${article.destination.region.country.slug}/${article.destination.region.slug}/${article.destination.slug}`}
+                >
+                  <Badge variant="tag" className="hover:border-amber-500 hover:text-amber-800 transition-colors cursor-pointer">
+                    {article.destination.name}, {article.destination.region.country.name}
+                  </Badge>
+                </Link>
               )}
             </div>
 
@@ -164,29 +167,7 @@ export default async function GuideDetailPage({ params }: GuidePageProps) {
             )}
 
             {/* Editorial Body */}
-            <div className="mt-10 space-y-6 text-stone-700 leading-relaxed text-lg font-serif">
-              {article.content ? (
-                article.content.split("\n\n").map((para, i) => {
-                  if (para.startsWith("## ")) {
-                    return (
-                      <h2 key={i} className="text-2xl font-sans font-bold text-stone-900 pt-6">
-                        {para.replace("## ", "")}
-                      </h2>
-                    );
-                  }
-                  if (para.startsWith("### ")) {
-                    return (
-                      <h3 key={i} className="text-xl font-sans font-semibold text-stone-900 pt-4">
-                        {para.replace("### ", "")}
-                      </h3>
-                    );
-                  }
-                  return <p key={i}>{para}</p>;
-                })
-              ) : (
-                <p>Full guide content coming soon.</p>
-              )}
-            </div>
+            <ArticleContent content={article.content} className="mt-10" />
 
             {/* Tags */}
             {article.tags.length > 0 && (
@@ -196,10 +177,10 @@ export default async function GuideDetailPage({ params }: GuidePageProps) {
                 </span>
                 {article.tags.map((t) => (
                   <span
-                    key={t.tag.id}
+                    key={t.id}
                     className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-700"
                   >
-                    #{t.tag.name}
+                    #{t.name}
                   </span>
                 ))}
               </div>

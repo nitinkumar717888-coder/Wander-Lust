@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
 import { siteConfig } from "@/config/site";
-import { db } from "@/lib/db";
+import { getPublishedSitemapEntries } from "@/lib/data/sitemap";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = siteConfig.url;
+  const siteUrl = siteConfig.url.replace(/\/$/, "");
   const lastModified = new Date();
 
   const coreRoutes: MetadataRoute.Sitemap = [
@@ -32,69 +32,57 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${siteUrl}/best-places-to-visit-in-manali`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
       url: `${siteUrl}/itineraries`,
       lastModified,
       changeFrequency: "weekly",
       priority: 0.8,
     },
     {
-      url: `${siteUrl}/things-to-do`,
+      url: `${siteUrl}/about`,
       lastModified,
-      changeFrequency: "weekly",
-      priority: 0.8,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${siteUrl}/contact`,
+      lastModified,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${siteUrl}/privacy-policy`,
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${siteUrl}/terms`,
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${siteUrl}/disclaimer`,
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.3,
     },
   ];
 
-  try {
-    const [destinations, places, articles, itineraries] = await Promise.all([
-      db.destination.findMany({
-        include: {
-          region: { include: { country: true } },
-        },
-      }),
-      db.place.findMany({
-        select: { slug: true, updatedAt: true },
-      }),
-      db.article.findMany({
-        where: { isPublished: true },
-        select: { slug: true, updatedAt: true },
-      }),
-      db.itinerary.findMany({
-        where: { isPublished: true },
-        select: { slug: true, updatedAt: true },
-      }),
-    ]);
+  const dynamicEntries = await getPublishedSitemapEntries();
 
-    const dynamicRoutes: MetadataRoute.Sitemap = [
-      ...destinations.map((d) => ({
-        url: `${siteUrl}/destinations/${d.region.country.slug}/${d.region.slug}/${d.slug}`,
-        lastModified: d.updatedAt,
-        changeFrequency: "weekly" as const,
-        priority: 0.9,
-      })),
-      ...places.map((p) => ({
-        url: `${siteUrl}/places/${p.slug}`,
-        lastModified: p.updatedAt,
-        changeFrequency: "weekly" as const,
-        priority: 0.8,
-      })),
-      ...articles.map((a) => ({
-        url: `${siteUrl}/travel-guides/${a.slug}`,
-        lastModified: a.updatedAt,
-        changeFrequency: "weekly" as const,
-        priority: 0.8,
-      })),
-      ...itineraries.map((i) => ({
-        url: `${siteUrl}/itineraries/${i.slug}`,
-        lastModified: i.updatedAt,
-        changeFrequency: "weekly" as const,
-        priority: 0.8,
-      })),
-    ];
+  const dynamicRoutes: MetadataRoute.Sitemap = dynamicEntries.map((entry) => ({
+    url: `${siteUrl}${entry.path}`,
+    lastModified: entry.lastModified,
+    changeFrequency: entry.changeFrequency,
+    priority: entry.priority,
+  }));
 
-    return [...coreRoutes, ...dynamicRoutes];
-  } catch (error) {
-    console.error("Error generating database-driven sitemap:", error);
-    return coreRoutes;
-  }
+  return [...coreRoutes, ...dynamicRoutes];
 }

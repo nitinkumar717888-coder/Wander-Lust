@@ -26,7 +26,7 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
       {/* JSON-LD structured data for search engines */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: jsonLd }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
       <nav

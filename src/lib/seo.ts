@@ -36,6 +36,9 @@ export interface SeoOptions {
  * Builds an absolute URL from a path.
  */
 export function absoluteUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
   const base = siteConfig.url.replace(/\/$/, "");
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return `${base}${normalized}`;
@@ -63,7 +66,7 @@ export function buildMetadata({
 }: SeoOptions): Metadata {
   const siteDescription = siteConfig.description;
   const resolvedDescription = description ?? siteDescription;
-  const resolvedOgImage = ogImageUrl ?? absoluteUrl(siteConfig.ogImage);
+  const resolvedOgImage = ogImageUrl ? absoluteUrl(ogImageUrl) : absoluteUrl(siteConfig.ogImage);
   const targetPath = canonicalPath ?? path;
   const canonical = targetPath ? absoluteUrl(targetPath) : undefined;
 
@@ -135,7 +138,7 @@ export interface BreadcrumbItem {
   href?: string;
 }
 
-export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]): string {
+export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]) {
   const listItems = items.map((item, index) => ({
     "@type": "ListItem",
     position: index + 1,
@@ -143,11 +146,11 @@ export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]): string {
     ...(item.href && { item: absoluteUrl(item.href) }),
   }));
 
-  return JSON.stringify({
+  return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: listItems,
-  });
+  };
 }
 
 /**
@@ -169,7 +172,39 @@ export function buildWebSiteJsonLd() {
 }
 
 /**
- * Generates Place structured data (JSON-LD).
+ * Generates TouristDestination structured data (JSON-LD).
+ */
+export function buildDestinationJsonLd({
+  name,
+  description,
+  url,
+  image,
+  containedInPlace,
+}: {
+  name: string;
+  description?: string;
+  url: string;
+  image?: string;
+  containedInPlace?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "TouristDestination",
+    name,
+    description: description ?? name,
+    url: absoluteUrl(url),
+    ...(image && { image: absoluteUrl(image) }),
+    ...(containedInPlace && {
+      containedInPlace: {
+        "@type": "AdministrativeArea",
+        name: containedInPlace,
+      },
+    }),
+  };
+}
+
+/**
+ * Generates Place / TouristAttraction structured data (JSON-LD).
  */
 export function buildPlaceJsonLd({
   name,
@@ -199,6 +234,62 @@ export function buildPlaceJsonLd({
       address: {
         "@type": "PostalAddress",
         ...address,
+      },
+    }),
+  };
+}
+
+/**
+ * Generates FAQPage structured data (JSON-LD).
+ */
+export function buildFaqJsonLd(faqs: { question: string; answer: string }[]) {
+  if (!faqs || faqs.length === 0) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
+}
+
+/**
+ * Generates TouristTrip structured data (JSON-LD) for itineraries.
+ */
+export function buildItineraryJsonLd({
+  title,
+  description,
+  url,
+  image,
+  durationDays,
+  destinationName,
+}: {
+  title: string;
+  description?: string;
+  url: string;
+  image?: string;
+  durationDays?: number;
+  destinationName?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "TouristTrip",
+    name: title,
+    description: description ?? title,
+    url: absoluteUrl(url),
+    ...(image && { image: absoluteUrl(image) }),
+    ...(destinationName && {
+      touristType: destinationName,
+    }),
+    ...(durationDays && {
+      itinerary: {
+        "@type": "ItemList",
+        numberOfItems: durationDays,
       },
     }),
   };
@@ -237,6 +328,7 @@ export function buildArticleJsonLd({
     publisher: {
       "@type": "Organization",
       name: siteConfig.name,
+      url: siteConfig.url,
       logo: {
         "@type": "ImageObject",
         url: absoluteUrl("/images/logo.png"),

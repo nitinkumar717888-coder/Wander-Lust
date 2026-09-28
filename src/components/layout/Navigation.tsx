@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navLinks, siteConfig } from "@/config/site";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { Logo } from "@/components/ui/Logo";
 
 /**
  * Navigation — primary editorial site header.
@@ -57,22 +58,17 @@ export function Navigation() {
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 flex-shrink-0 group"
+            className="flex items-center gap-2.5 flex-shrink-0 group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             aria-label={`${siteConfig.name} — Go to homepage`}
           >
-            <div
-              className={cn(
-                "flex items-center gap-2.5 transition-colors duration-200",
+            <Logo
+              variant="full"
+              textClassName={cn(
+                "transition-colors duration-200",
                 isScrolled || isMobileMenuOpen ? "text-stone-900" : "text-white"
               )}
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-stone-950 font-serif font-black text-lg shadow-xs group-hover:bg-amber-400 transition-colors">
-                W
-              </span>
-              <span className="text-xl font-bold tracking-tight font-serif">
-                {siteConfig.name}
-              </span>
-            </div>
+              responsiveText={true}
+            />
           </Link>
 
           {/* Desktop Navigation Links */}
@@ -85,7 +81,7 @@ export function Navigation() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
                     isScrolled
                       ? isActive
                         ? "text-amber-800 bg-amber-50"
@@ -116,7 +112,7 @@ export function Navigation() {
               href="/search"
               aria-label="Search destinations, places and guides"
               className={cn(
-                "p-2 rounded-lg transition-colors duration-200",
+                "p-2 rounded-lg transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
                 isScrolled || isMobileMenuOpen
                   ? "text-stone-700 hover:bg-stone-100"
                   : "text-white hover:bg-white/10"
@@ -148,7 +144,7 @@ export function Navigation() {
               aria-controls="mobile-menu"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className={cn(
-                "p-2 rounded-lg transition-colors duration-200",
+                "p-2 rounded-lg transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
                 isScrolled || isMobileMenuOpen
                   ? "text-stone-700 hover:bg-stone-100"
                   : "text-white hover:bg-white/10"
